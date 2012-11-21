@@ -61,6 +61,7 @@ LOCAL_SRC_FILES:=                         \
         mp4/TrackFragment.cpp             \
         ExtendedExtractor.cpp             \
         QCUtils.cpp                       \
+        ThreadedSource.cpp                \
 
 LOCAL_C_INCLUDES:= \
         $(TOP)/frameworks/av/include/media/stagefright/timedtext \
