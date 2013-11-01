@@ -50,6 +50,8 @@ NuPlayer::Renderer::Renderer(
       mSyncQueues(false),
       mPaused(false),
       mVideoRenderingStarted(false),
+      mVideoRenderingStartGeneration(0),
+      mAudioRenderingStartGeneration(0),
       mLastPositionUpdateUs(-1ll),
       mVideoLateByUs(0ll) {
 }
@@ -95,11 +97,11 @@ void NuPlayer::Renderer::flush(bool audio) {
 }
 
 void NuPlayer::Renderer::signalTimeDiscontinuity() {
-    CHECK(mAudioQueue.empty());
-    CHECK(mVideoQueue.empty());
+    // CHECK(mAudioQueue.empty());
+    // CHECK(mVideoQueue.empty());
     mAnchorTimeMediaUs = -1;
     mAnchorTimeRealUs = -1;
-    mSyncQueues = mHasAudio && mHasVideo;
+    mSyncQueues = false;
 }
 
 void NuPlayer::Renderer::pause() {
@@ -220,6 +222,23 @@ void NuPlayer::Renderer::signalAudioSinkChanged() {
     (new AMessage(kWhatAudioSinkChanged, id()))->post();
 }
 
+void NuPlayer::Renderer::prepareForMediaRenderingStart() {
+    mAudioRenderingStartGeneration = mAudioQueueGeneration;
+    mVideoRenderingStartGeneration = mVideoQueueGeneration;
+}
+
+void NuPlayer::Renderer::notifyIfMediaRenderingStarted() {
+    if (mVideoRenderingStartGeneration == mVideoQueueGeneration &&
+        mAudioRenderingStartGeneration == mAudioQueueGeneration) {
+        mVideoRenderingStartGeneration = -1;
+        mAudioRenderingStartGeneration = -1;
+
+        sp<AMessage> notify = mNotify->dup();
+        notify->setInt32("what", kWhatMediaRenderingStart);
+        notify->post();
+    }
+}
+
 bool NuPlayer::Renderer::onDrainAudioQueue() {
     uint32_t numFramesPlayed;
     status_t positionStatus = mAudioSink->getPosition(&numFramesPlayed);
@@ -314,6 +333,8 @@ bool NuPlayer::Renderer::onDrainAudioQueue() {
         numBytesAvailableToWrite -= copy;
         size_t copiedFrames = copy / mAudioSink->frameSize();
         mNumFramesWritten += copiedFrames;
+
+        notifyIfMediaRenderingStarted();
     }
 
     notifyPosition();
@@ -419,6 +440,8 @@ void NuPlayer::Renderer::onDrainVideoQueue() {
         mVideoRenderingStarted = true;
         notifyVideoRenderingStart();
     }
+
+    notifyIfMediaRenderingStarted();
 
     notifyPosition();
 }
@@ -567,6 +590,7 @@ void NuPlayer::Renderer::onFlush(const sp<AMessage> &msg) {
     // is flushed.
     syncQueuesDone();
 
+    ALOGV("flushing %s", audio ? "audio" : "video");
     if (audio) {
         flushQueue(&mAudioQueue);
 
@@ -575,6 +599,8 @@ void NuPlayer::Renderer::onFlush(const sp<AMessage> &msg) {
 
         mDrainAudioQueuePending = false;
         ++mAudioQueueGeneration;
+
+        prepareForMediaRenderingStart();
     } else {
         flushQueue(&mVideoQueue);
 
@@ -583,6 +609,8 @@ void NuPlayer::Renderer::onFlush(const sp<AMessage> &msg) {
 
         mDrainVideoQueuePending = false;
         ++mVideoQueueGeneration;
+
+        prepareForMediaRenderingStart();
     }
 
     notifyFlushComplete(audio);
@@ -672,6 +700,8 @@ void NuPlayer::Renderer::onPause() {
 
     mDrainVideoQueuePending = false;
     ++mVideoQueueGeneration;
+
+    prepareForMediaRenderingStart();
 
     if (mHasAudio) {
         mAudioSink->pause();

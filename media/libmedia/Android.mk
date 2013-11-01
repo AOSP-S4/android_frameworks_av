@@ -62,7 +62,8 @@ LOCAL_SRC_FILES:= \
     Visualizer.cpp \
     MemoryLeakTrackUtil.cpp \
     SoundPool.cpp \
-    SoundPoolThread.cpp
+    SoundPoolThread.cpp \
+    StringArray.cpp
 
 LOCAL_SRC_FILES += ../libnbaio/roundup.c
 
@@ -95,6 +96,7 @@ endif
 LOCAL_CFLAGS += -DANDROID_SMP=$(if $(findstring true,$(TARGET_CPU_SMP)),1,0)
 LOCAL_SRC_FILES += SingleStateQueue.cpp
 LOCAL_CFLAGS += -DSINGLE_STATE_QUEUE_INSTANTIATIONS='"SingleStateQueueInstantiations.cpp"'
+# Consider a separate a library for SingleStateQueueInstantiations.
 
 LOCAL_SHARED_LIBRARIES := \
 	libui liblog libcutils libutils libbinder libsonivox libicuuc libexpat \

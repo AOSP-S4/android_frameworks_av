@@ -124,7 +124,8 @@ private:
     };
 
     enum {
-        kFlagIsSecure   = 1,
+        kFlagIsSecure                                 = 1,
+        kFlagPushBlankBuffersToNativeWindowOnShutdown = 2,
     };
 
     struct BufferInfo {
@@ -138,6 +139,7 @@ private:
 
         IOMX::buffer_id mBufferID;
         Status mStatus;
+        unsigned mDequeuedAt;
 
         sp<ABuffer> mData;
         sp<GraphicBuffer> mGraphicBuffer;
@@ -182,7 +184,7 @@ private:
 
     bool mSentFormat;
     bool mIsEncoder;
-
+    bool mUseMetadataOnEncoderOutput;
     bool mShutdownInProgress;
 
     // If "mKeepComponentAllocated" we only transition back to Loaded state
@@ -194,6 +196,11 @@ private:
 
     bool mChannelMaskPresent;
     int32_t mChannelMask;
+    unsigned mDequeueCounter;
+    bool mStoreMetaDataInOutputBuffers;
+    int32_t mMetaDataBuffersToSubmit;
+
+    int64_t mRepeatFrameDelayUs;
 
     bool mInSmoothStreamingMode;
 
@@ -202,6 +209,11 @@ private:
     status_t freeBuffersOnPort(OMX_U32 portIndex);
     status_t freeBuffer(OMX_U32 portIndex, size_t i);
 
+    status_t configureOutputBuffersFromNativeWindow(
+            OMX_U32 *nBufferCount, OMX_U32 *nBufferSize,
+            OMX_U32 *nMinUndequeuedBuffers);
+    status_t allocateOutputMetaDataBuffers();
+    status_t submitOutputMetaDataBuffer();
     status_t allocateOutputBuffersFromNativeWindow();
 #ifdef USE_SAMSUNG_COLORFORMAT
     void setNativeWindowColorFormat(OMX_COLOR_FORMATTYPE &eNativeColorFormat);
